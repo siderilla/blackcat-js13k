@@ -65,9 +65,18 @@ function drawBackground() {
 	ctx.fillRect(0, 0, canvas.width, canvas.height)
 }
 
+function drawShelves() {
+	shelves.forEach(drawShelf())
+}
+
+const shelves = [
+	{ x: 20, y: 60, width: 40},
+	{ x: 80, y: 90, width: 30}
+];
+
 function drawShelf() {
 	ctx.fillStyle = "#654321";
-	ctx.fillRect(40, 50, 30, 5);
+	ctx.fillRect(shelf.x, shelf.y, shelf.width, 5);
 }
 
 function drawCat(x, y) {
@@ -128,7 +137,7 @@ function drawCouldron() {
 
 function drawScene(frame) {
 	drawBackground();
-	drawShelf();
+	drawShelves();
 	drawCat(catX, catY);
 	// drawSmoke(100, 60, 1);
 	drawCouldron();
