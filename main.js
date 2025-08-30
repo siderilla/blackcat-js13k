@@ -1,147 +1,120 @@
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
-ctx.imageSmoothingEnabled = false;
 
-const colorMap = {
-	b: "#000",
-	y: "#ff0",
-	p: "#f0f",
-	r: "#f00",
-	l: "#0f0",
-	m: "#800",
-	o: "#faa",
-	g: "#009100",
-	a: "#00f"
-};
+const player = { x: 50, y: 100, size: 10, speed: 2 };
+const tuna = { x: 160, y: 120, size: 12 };
+const enemies = [
+	{ x: 280, y: 200, size: 10, speed: 0.5 },
+	{ x: 100, y: 30, size: 10, speed: 0.2 }
+]
 
-let catX = 50;
-let catY = 40;
-
-let velocityY = 0;
-let isJumping = false;
-
-const gravity = 0.1;
-const jumpPower = -2;
-const groundY = 40;
+// eventually:
+// const characters = [
+// 	{ type: "player", x: 50, y: 100, size: 10, speed: 2, color: "#4fc3f7" },
+// 	{ type: "enemy", x: 280, y: 200, size: 10, speed: 1.5, color: "#f77" },
+// 	{ type: "enemy", x: 100, y: 30, size: 10, speed: 0.5, color: "#f99" }
+// ];
 
 const keys = {};
-window.addEventListener("keydown", e => {
-	keys[e.code] = true;
+
+document.addEventListener("keydown", (e) => {
+	keys[e.key.toLowerCase()] = true;
+});
+document.addEventListener("keyup", (e) => {
+	keys[e.key.toLowerCase()] = false;
 });
 
-window.addEventListener("keyup", e => {
-	keys[e.code] = false;
-})
+function checkCollision(a, b) {
+	const dx = a.x - b.x;
+	const dy = a.y - b.y;
+	const distance = Math.sqrt(dx * dx + dy * dy)
+	return distance < (a.size + b.size) / 2;
+}
 
-let frame = 0;
+let level = 1;
 
-function loop() {
+let bgColor = "#4d798aff";
+
+function updateEnemies() {
+	for (const enemy of enemies) {
+		const dx = tuna.x - enemy.x;
+		const dy = tuna.y - enemy.y;
+		const dist = Math.sqrt(dx * dx + dy * dy);
+		if (dist > 1) {
+			enemy.x += (dx / dist) * enemy.speed;
+			enemy.y += (dy / dist) * enemy.speed;
+		}
+
+		if (checkCollision(enemy, tuna)) {
+			console.log("The enemy has eaten the tuna!");
+			resetLevel();
+		}
+	}
+}
+
+function update() {
+	// movements
+	if (keys['arrowup'] || keys['w']) player.y -= player.speed;
+	if (keys['arrowdown'] || keys['s']) player.y += player.speed;
+	if (keys['arrowleft'] || keys['a']) player.x -= player.speed;
+	if (keys['arrowright'] || keys['d']) player.x += player.speed;
+
+	// collecting tuna
+	if (checkCollision(player, tuna)) {
+		level++;
+		console.log("Level up", level);
+		resetLevel();
+	}
+
+	updateEnemies();
+}
+
+function resetLevel() {
+	player.x = 50;
+	player.y = 100;
+	tuna.x = Math.random() * (canvas.width - 20) + 10;
+	tuna.y = Math.random() * (canvas.height - 20) + 10;
+
+	if (level === 4) {
+		bgColor = "rgba(54, 54, 105, 1)";
+	} else if (level === 7) {
+		bgColor = "#002"
+	}
+
+	for (const enemy of enemies) {
+		enemy.x = Math.random() * (canvas.width - 20) + 10;
+		enemy.y = Math.random() * (canvas.height - 20) + 10;
+	}
+
+}
+
+function draw() {
 	ctx.clearRect(0, 0, canvas.width, canvas.height);
-	if (keys["ArrowLeft"]) {
-		catX -= 1;
-	}
-	if (keys["ArrowRight"]) {
-		catX += 1;
-	}
-	if (keys["ArrowUp"] && !isJumping) {
-		velocityY = jumpPower;
-		isJumping = true;
-	}
-	velocityY += gravity;
-	catY += velocityY;
-	if (catY >= groundY) {
-		catY = groundY;
-		velocityY = 0;
-		isJumping = false;
-	}
-	catX = Math.max(0, Math.min(canvas.width - 10, catX));
-	drawScene(frame);
-	frame++;
-	requestAnimationFrame(loop);
-}
 
-function drawBackground() {
-	ctx.fillStyle = "#222";
-	ctx.fillRect(0, 0, canvas.width, canvas.height)
-}
+	// bg
+	ctx.fillStyle = bgColor;
+	ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-function drawShelves() {
-	shelves.forEach(drawShelf())
-}
+	// tuna
+	ctx.fillStyle = "#f4e04d";
+	ctx.fillRect(tuna.x - tuna.size / 2, tuna.y - tuna.size / 2, tuna.size, tuna.size);
 
-const shelves = [
-	{ x: 20, y: 60, width: 40},
-	{ x: 80, y: 90, width: 30}
-];
+	// blackcat
+	ctx.fillStyle = "#4fc3f7";
+	ctx.fillRect(player.x, player.y, player.size, player.size);
 
-function drawShelf() {
-	ctx.fillStyle = "#654321";
-	ctx.fillRect(shelf.x, shelf.y, shelf.width, 5);
-}
-
-function drawCat(x, y) {
-	const pixel = 2;
-	const sprite = [
-		[1, 0, 0, 1],
-		[1, 1, 1, 1],
-		[1, 0, 0, 1],
-		[0, 1, 1, 0]
-
-	];
-	ctx.fillStyle = "black";
-	sprite.forEach((row, i) => {
-		row.forEach((val, j) => {
-			if (val) ctx.fillRect(x + j * pixel, y + i * pixel, pixel, pixel);
-		});
-	});
-}
-
-function drawSmoke(x, y, time) {
-	ctx.fillStyle = "rgba(0,255,0,0.2)"; // verde trasparente
-	for (let i = 0; i < 5; i++) {
-		const dx = Math.sin(time / 10 + i) * 2;
-		const dy = -i * 5;
-		ctx.beginPath();
-		ctx.arc(x + dx, y + dy, 3, 0, 2 * Math.PI);
-		ctx.fill();
+	// enemies
+	for (const enemy of enemies) {
+		ctx.fillStyle = "#f77";
+		ctx.fillRect(enemy.x, enemy.y, enemy.size, enemy.size);
 	}
 }
 
 
-function drawFire(x, y, time) {
-	ctx.fillStyle = time % 20 < 10 ? "#f80" : "#ff0"; // cambia colore
-	ctx.beginPath();
-	ctx.moveTo(x, y);
-	ctx.lineTo(x - 3, y + 10);
-	ctx.lineTo(x + 3, y + 10);
-	ctx.closePath();
-	ctx.fill();
+function gameLoop() {
+	update();
+	draw();
+	requestAnimationFrame(gameLoop);
 }
 
-
-function drawCouldron() {
-	ctx.fillStyle = "#333";
-	ctx.beginPath();
-	ctx.arc(80, 92, 20, 0, Math.PI, false); // semicerchio
-	ctx.fill();
-
-	// fumo stilizzato
-	ctx.fillStyle = "green";
-	ctx.beginPath();
-	ctx.arc(75, 85, 3, 0, 2 * Math.PI);
-	ctx.fill();
-	ctx.beginPath();
-	ctx.arc(85, 81, 2, 0, 2 * Math.PI);
-	ctx.fill();
-}
-
-function drawScene(frame) {
-	drawBackground();
-	drawShelves();
-	drawCat(catX, catY);
-	// drawSmoke(100, 60, 1);
-	drawCouldron();
-	drawFire(80, 105, frame);
-}
-
-loop();
+gameLoop();
