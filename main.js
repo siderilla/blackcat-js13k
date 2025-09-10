@@ -25,7 +25,9 @@ function spawnCharacters(level) {
 		color: "#4fc3f7",
 		direction: "down",
 		state: "idle",
-		frame: 0
+		frame: 0,
+		hitsTaken: 0
+
 	});
 
 	//enemies
@@ -55,7 +57,21 @@ const keys = {};
 
 document.addEventListener("keydown", (e) => {
 	keys[e.key.toLowerCase()] = true;
+
+	if (e.code === "Space" && level === 13) {
+		const player = characters.find(c => c.type === "player");
+		if (player) {
+			playerProjectiles.push({
+				x: player.x + player.size / 2,
+				y: player.y,
+				radius: 2,
+				speed: 3,
+				color: "#00ffcc"
+			});
+		}
+	}
 });
+
 document.addEventListener("keyup", (e) => {
 	keys[e.key.toLowerCase()] = false;
 });
@@ -64,14 +80,27 @@ function checkCollision(a, b) {
 	const dx = a.x - b.x;
 	const dy = a.y - b.y;
 	const distance = Math.sqrt(dx * dx + dy * dy)
-	return distance < (a.size + b.size) / 2;
+
+	const aSize = a.size ?? a.radius ?? 0;
+	const bSize = b.size ?? b.radius ?? 0;
+
+	return distance < (aSize + bSize) / 2;
 }
 
 let level = 1;
 
 let bgColor = "#4d798aff";
 
-let projectiles = [];
+let tunaProjectiles = [];
+let playerProjectiles = [];
+
+let transitionText = "";
+let transitionTimer = 0;
+
+function showLevelMessage(msg, duration = 2000) {
+	transitionText = msg;
+	transitionTimer = Date.now() + duration;
+}
 
 function update() {
 	// movement and basic collisions
@@ -118,7 +147,7 @@ function update() {
 		}
 
 		if (Math.random() < 0.02) {
-			projectiles.push({
+			tunaProjectiles.push({
 				x: tuna.x,
 				y: tuna.y + tuna.size / 2,
 				radius: 3,
@@ -127,21 +156,54 @@ function update() {
 			});
 		}
 
-		for (let i = projectiles.length - 1; i >= 0; i--) {
-			const p = projectiles[i];
+		for (let i = tunaProjectiles.length - 1; i >= 0; i--) {
+			const p = tunaProjectiles[i];
 			p.y += p.speed;
 
 			if (p.y > canvas.height) {
-				projectiles.splice(i, 1);
+				tunaProjectiles.splice(i, 1);
 				continue;
 			}
 
 			const player = characters.find(c => c.type === "player");
 			if (checkCollision(p, player)) {
-				console.log("BOOM! You died");
-				resetLevel();
-				return;
+				player.hitsTaken++;
+
+				console.log("You got", player.hitsTaken, "damage!");
+				tunaProjectiles.splice(i, 1);
+
+				if (player.hitsTaken >= 3) {
+					console.log("GAME OVER!");
+					restartLevel();
+					return;
+				}
+
 			}
+		}
+
+		for (let i = playerProjectiles.length -1; i >= 0; i--) {
+			const p = playerProjectiles[i];
+			p.y -= p.speed;
+			
+			// remove projectiles if out of screen
+			if (p.y < 0) {
+				playerProjectiles.splice(i, 1);
+				continue;
+			}
+
+			// tuna collision
+			if (level === 13 && checkCollision(p, tuna)) {
+				tuna.hitsTaken = (tuna.hitsTaken || 0) + 1;
+				console.log("You hit the tuna by", tuna.hitsTaken);
+
+				playerProjectiles.splice(i, 1);
+
+				if (tuna.hitsTaken >= 13) {
+					console.log("You have defeated the tuna boss!");
+					showLevelMessage("THE END")
+				}
+			}
+
 		}
 	}
 }
@@ -169,8 +231,26 @@ function resetLevel() {
 	} else if (level === 7) {
 		bgColor = "#002";
 	}
+
+	if (level === 2) {
+		showLevelMessage("The black cat feels a strange chill behind his tail...");
+	} else if (level === 3) {
+		showLevelMessage("Is tuna... radioactive?!");
+	} else if (level === 4) {
+		showLevelMessage("")
+	}
 }
 
+function restartLevel() {
+	level = 1;
+	tunaProjectiles = [];
+	characters = spawnCharacters(level);
+
+	tuna.size = 12;
+
+	showLevelMessage("You died! Back to level 1...");
+
+}
 
 function draw() {
 	ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -189,11 +269,27 @@ function draw() {
 		ctx.fillRect(c.x, c.y, c.size, c.size);
 	}
 
-	for (const p of projectiles) {
+	for (const p of tunaProjectiles) {
 		ctx.fillStyle = p.color;
 		ctx.beginPath();
 		ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
 		ctx.fill();
+	}
+
+	for (const p of playerProjectiles) {
+		ctx.fillStyle = p.color;
+		ctx.beginPath();
+		ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+		ctx.fill();
+	}
+
+	if (transitionText && Date.now() < transitionTimer) {
+		ctx.fillStyle = "rgba(0,0,0,0.6)";
+		ctx.fillRect(0, 0, canvas.width, canvas.height);
+		ctx.fillStyle = "#fff";
+		ctx.font = "16px monospace";
+		ctx.textAlign = "center";
+		ctx.fillText(transitionText, canvas.width / 2, canvas.height / 2);
 	}
 }
 
