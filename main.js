@@ -58,7 +58,14 @@ const keys = {};
 document.addEventListener("keydown", (e) => {
 	keys[e.key.toLowerCase()] = true;
 
-	if (e.code === "Space" && level === 13) {
+	if (e.code === "Space" && isPaused) {
+		isPaused = false;
+		transitionText = "";
+		transitionTimer = 0;
+		return;
+	}
+
+	if (e.code === "Space" && level === 13 && !isPaused) {
 		const player = characters.find(c => c.type === "player");
 		if (player) {
 			playerProjectiles.push({
@@ -97,12 +104,20 @@ let playerProjectiles = [];
 let transitionText = "";
 let transitionTimer = 0;
 
-function showLevelMessage(msg, duration = 2000) {
+let isPaused = false;
+
+let blinkTimer = 0;
+
+function showLevelMessage(msg, duration = 0) {
 	transitionText = msg;
-	transitionTimer = Date.now() + duration;
+	transitionTimer = Infinity;
+	isPaused = true
 }
 
 function update() {
+
+	if (isPaused) return;
+
 	// movement and basic collisions
 	for (const c of characters) {
 		if (c.type === "player") {
@@ -124,11 +139,20 @@ function update() {
 
 		// collecting tuna
 		if (checkCollision(c, tuna) && c.type === "player") {
+			if (level === 13) {
+				console.log("YOU WIN!");
+				setTimeout(() => {
+					restartGame();
+				}, 5000);
+				return;
+			}
+
 			level++;
 			console.log("Level up", level);
 			resetLevel();
 			return;
 		}
+
 		if (checkCollision(c, tuna) && c.type === "enemy") {
 			console.log("Enemy has eaten the tuna!");
 			resetLevel();
@@ -174,17 +198,17 @@ function update() {
 
 				if (player.hitsTaken >= 3) {
 					console.log("GAME OVER!");
-					restartLevel();
+					restartGame();
 					return;
 				}
 
 			}
 		}
 
-		for (let i = playerProjectiles.length -1; i >= 0; i--) {
+		for (let i = playerProjectiles.length - 1; i >= 0; i--) {
 			const p = playerProjectiles[i];
 			p.y -= p.speed;
-			
+
 			// remove projectiles if out of screen
 			if (p.y < 0) {
 				playerProjectiles.splice(i, 1);
@@ -241,13 +265,11 @@ function resetLevel() {
 	}
 }
 
-function restartLevel() {
+function restartGame() {
 	level = 1;
+	playerProjectiles = [];
 	tunaProjectiles = [];
-	characters = spawnCharacters(level);
-
-	tuna.size = 12;
-
+	resetLevel();
 	showLevelMessage("You died! Back to level 1...");
 
 }
@@ -284,12 +306,22 @@ function draw() {
 	}
 
 	if (transitionText && Date.now() < transitionTimer) {
-		ctx.fillStyle = "rgba(0,0,0,0.6)";
-		ctx.fillRect(0, 0, canvas.width, canvas.height);
-		ctx.fillStyle = "#fff";
-		ctx.font = "16px monospace";
-		ctx.textAlign = "center";
-		ctx.fillText(transitionText, canvas.width / 2, canvas.height / 2);
+		if (isPaused && transitionText) {
+			ctx.fillStyle = "rgba(0,0,0,0.6)";
+			ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+			ctx.fillStyle = "#fff";
+			ctx.font = "16px monospace";
+			ctx.textAlign = "center";
+			ctx.fillText(transitionText, canvas.width / 2, canvas.height / 2);
+
+			blinkTimer++;
+			if (Math.floor(blinkTimer / 30) % 2 === 0) {
+				ctx.font = "12px monospace";
+				ctx.fillStyle = "#cccccc";
+				ctx.fillText("Press SPACEBAR to continue", canvas.width / 2, canvas.height / 2 + 30);
+			}
+		}
 	}
 }
 
